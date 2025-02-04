@@ -1,24 +1,37 @@
 source("./src/functions.R")
 
+spc_base <- "https://stats-sdmx-disseminate.pacificdata.org/rest"
+
 # let's work on something we know a bit
 this_df <- "DF_POP_LECZ"
 
 # next goal is to retrieve all the necessary metadata to produce
 # a good table
 
-# dataflow info requires only the DF name (we always care about the latest version)
-df_art <- readSDMX("https://stats-sdmx-disseminate.pacificdata.org/rest/dataflow/SPC/df_pop_age/latest?references=all")
-
-# info is stored into the component of the associated DSD
-# we'll need to pack this into a good function
-dsd_art <- df_art@datastructures@datastructures[[1]]
-dimensions <- dsd_art@Components@Dimensions
-time_dimension <- dsd_art@Components@TimeDimension
-primary_measure <- dsd_art@Components@PrimaryMeasure
-attributes <- dsd_art@Components@Attributes
+this_components <- this_df |>
+    df_to_dsd_components()
 
 
-data_url <- "SPC,DF_POP_LECZ,1.0/A.AS..?dimensionAtObservation=AllDimensions"
+ind_cl <- this_components |>
+    filter(conceptRef == "INDICATOR")
+
+indicators <- cl_to_tbl(ind_cl$codelist, agency = ind_cl$codelistAgency, version = ind_cl$codelistVersion)$id
+
+if("GEO_PICT" %in% this_components$conceptRef){
+    geo_cl <- this_components |>
+        filter(conceptRef == "GEO_PICT")
+    geos <- cl_to_tbl(geo_cl$codelist, agency = geo_cl$codelistAgency, version = geo_cl$codelistVersion)$id
+}
+
+agency <- version <- df_id <- NULL
+crossing(geos,indicators) |>
+pwalk(~ print(
+    walker_query(..1, ..2, "DF_POP_LECZ", this_components)
+))
+
+query <- "https://stats-sdmx-disseminate.pacificdata.org/rest/codelist/SPC/CL_BOP_INDICATORS/latest"
+data_url <- 
+cl <- readSDMX(query)
 
 geo <- "AS"
 indicator <- "this_indicator"

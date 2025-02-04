@@ -25,9 +25,9 @@ if("GEO_PICT" %in% this_components$conceptRef){
 
 agency <- version <- df_id <- NULL
 crossing(geos,indicators) |>
-pwalk(~ print(
-    walker_query(..1, ..2, "DF_POP_LECZ", this_components)
-))
+pwalk(~ 
+    get_diffs_chunk_for_df(..1, ..2, "DF_POP_LECZ", version = "1.0", dsd_components = this_components)
+)
 
 query <- "https://stats-sdmx-disseminate.pacificdata.org/rest/codelist/SPC/CL_BOP_INDICATORS/latest"
 data_url <- 

@@ -159,6 +159,8 @@ cl_to_tbl <- function(cl_id,
 
 
 get_prod_stag_data <- function(data_url, old_base = prod_base, new_base = stag_base) {
+ 
+ print(paste0(old_base, data_url))
   old_data <- readSDMX(
     paste0(old_base, data_url)
   ) |>
@@ -185,11 +187,11 @@ produce_diffs <- function(old_data, new_data, dimensions) {
   return(this_diffs)
 }
 
-table_to_tex <- function(out_table, indicator_name, geo_name) {
+table_to_tex <- function(out_table, indicator_name, geo_name, chunk_name) {
   out_table |>
     kbl(
       caption = str_glue("{indicator_name} data for {geo_name}"),
-      booktabs = T,
+      booktabs = TRUE,
       longtable = TRUE,
       format = "latex"
     ) %>%
@@ -197,16 +199,28 @@ table_to_tex <- function(out_table, indicator_name, geo_name) {
       bootstrap_options = c("striped", "hover", "condensed"),
       latex_options = c("repeat_header")
     ) %>%
-    save_kable(str_glue("./output/{indicator_name}_{geo_name}.tex"))
+    save_kable(chunk_name)
 }
 
-get_diffs_chunk_for_df <- function(data_url, old_base, new_base) {
+get_diffs_chunk_for_df <- function(
+    geo, ind, df_id, dsd_components,
+    agency = "SPC", version = "latest",
+    old_base = prod_base,
+    new_base = stag_base,
+    output_folder = "./output/") {
 
+  data_url <- walker_query(
+    geo, ind, df_id, dsd_components,
+    agency, version
+  )
+  print(data_url)
   data_to_diff <- get_prod_stag_data(data_url, old_base, new_base)
-  this_diffs <- produce_diffs
-  
-  chunk_name <- 
 
-  table_to_tex
+  this_diffs <- produce_diffs(data_to_diff$base, data_to_diff$new)
+
+  chunk_name <- paste(df_id, ind, geo, sep = "_")
+  chunk_name <- paste0(output_folder, chunk_name, ".tex")
+
+  table_to_tex(this_diffs, ind, geo, chunk_name)
 
 }

@@ -9,8 +9,9 @@ this_df <- "DF_POP_LECZ"
 # a good table
 
 this_components <- this_df |>
-    df_to_dsd_components()
+    df_to_component_tbl(break_early = false)
 
+this_components@xmlObj |> glimpse()
 
 ind_cl <- this_components |>
     filter(conceptRef == "INDICATOR")
@@ -28,6 +29,8 @@ crossing(geos,indicators) |>
 pwalk(~ 
     get_diffs_chunk_for_df(..1, ..2, "DF_POP_LECZ", version = "1.0", dsd_components = this_components)
 )
+
+this_con <- "https://stats-sdmx-disseminate.pacificdata.org/rest/actualconstraint/SPC/CR_A_DF_POP_LECZ/latest?references=all" |> read()
 
 query <- "https://stats-sdmx-disseminate.pacificdata.org/rest/codelist/SPC/CL_BOP_INDICATORS/latest"
 data_url <- 

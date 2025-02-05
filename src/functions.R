@@ -4,6 +4,7 @@ library(tidyverse)
 library(diffdf)
 library(arsenal)
 library(kableExtra)
+library(xml2)
 
 # initial idea is
 # for each dataflow
@@ -23,16 +24,15 @@ stag_base <- "https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/"
 ##
 
 build_sdmx_artefact_url <- function(base_url, object, agency, obj_id, version, references) {
-  
-  base_url <- str_remove(base_url,"/$")
-  
+  base_url <- str_remove(base_url, "/$")
+
   query_url <- str_glue(
     "{base_url}/{object}/{agency}/{obj_id}/{version}"
   )
 
   query_url <- if_else(is_empty(references),
     query_url,
-    paste0(query_url,"?references=",references)
+    paste0(query_url, "?references=", references)
   )
 
   return(query_url)
@@ -50,23 +50,61 @@ S4_to_tibble <- function(s4obj) {
     setNames(nms) |>
     unlist()
 
-  return( bind_rows(lst) )
+  return(bind_rows(lst))
 }
 
 
-df_to_components_tbl <- function(df_id,
-  base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest",
-  agency = "SPC", version = "latest", references = "all",
-  all_details = FALSE) {
+this_con <- "https://stats-sdmx-disseminate.pacificdata.org/rest/actualconstraint/SPC/CR_A_DF_POP_LECZ/latest?references=all" |> read_xml()
 
-  
-  df_art <- build_sdmx_artefact_url(base_url,"dataflow",agency,df_id,version, references) |>
+
+
+## currently here, defining this as a function
+df_codes_available <- function() {
+  acons <- this_con |>
+    xml_find_all("//structure:CubeRegion") |>
+    xml_children()
+
+  conceptRefs_constrained <- acons |>
+    xml_attrs("id") |>
+    map_chr(identity)
+
+  actual_content <- acons |> map(\(x) x |> extract_constraint())
+}
+
+  extract_constraint <- function(xml_node) {
+    if (xml_node |> xml_attr("id") == "TIME_PERIOD") {
+      this_content <- xml_node |>
+        xml_child(1) |>
+        xml_children() |>
+        map(xml_text) |>
+        map_chr(identity)
+    } else {
+      this_content <- xml_node |>
+        xml_children() |>
+        xml_text()
+    }
+  }
+
+  available_content <- setNames(actual_content, conceptRefs_constrained)
+
+  return(available_content)
+}
+
+
+df_to_component_tbl <- function(
+    df_id,
+    base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest",
+    agency = "SPC", version = "latest", references = "all",
+    all_details = FALSE, break_early = FALSE) {
+  df_art <- build_sdmx_artefact_url(base_url, "dataflow", agency, df_id, version, references) |>
     readSDMX()
-
+  if (break_early) {
+    return(df_art)
+  }
   # info is stored into the component of the associated DSD
   # we'll need to pack this into a good function
   dsd_art <- df_art@datastructures@datastructures[[1]]
-  
+
   dimensions <- dsd_art@Components@Dimensions |>
     map_df(S4_to_tibble)
 
@@ -95,8 +133,8 @@ df_to_components_tbl <- function(df_id,
         attribute = "4"
       )
     )
-  
-  if(!all_details){
+
+  if (!all_details) {
     components_df <- components_df |>
       select(
         type,
@@ -111,11 +149,10 @@ df_to_components_tbl <- function(df_id,
 # time_dimension follows another syntax, and we don't need it yet
 # (it gets appended after the query in the other specificatrions TBB)
 build_sdmx_query <- function(dimensions, dim_filters) {
-
   query_string <- ""
 
-  for(dimension in dimensions) {
-    if(dimension %in% names(dim_filters)) {
+  for (dimension in dimensions) {
+    if (dimension %in% names(dim_filters)) {
       query_string <- paste0(query_string, dim_filters[dimension], ".")
     } else {
       query_string <- paste0(query_string, ".")
@@ -124,18 +161,18 @@ build_sdmx_query <- function(dimensions, dim_filters) {
 
   # we remove the last dot of the query url because dots
   # are used as _internal_ delimiters only (last one is not present)
-  query_string <- str_remove(query_string,".$")
+  query_string <- str_remove(query_string, ".$")
 
   return(query_string)
-
 }
 
 
 walker_query <- function(geo, ind, df_id, dsd_components, agency = "SPC", version = "latest") {
-  this_df_dims <- dsd_components |> filter(
-    type %in% c("dimension")
-  ) %>%
-  pluck("conceptRef")
+  this_df_dims <- dsd_components |>
+    filter(
+      type %in% c("dimension")
+    ) %>%
+    pluck("conceptRef")
 
   this_filters <- c(GEO_PICT = geo, INDICATOR = ind)
 
@@ -144,23 +181,22 @@ walker_query <- function(geo, ind, df_id, dsd_components, agency = "SPC", versio
   return(query_url)
 }
 
-cl_to_tbl <- function(cl_id,
-  base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest",
-  agency = "SPC", version = "latest", references = NULL,
-  all_details = FALSE) {
-
-  cl_art <- build_sdmx_artefact_url(base_url,"codelist",agency,cl_id,version,references) |>
+cl_to_tbl <- function(
+    cl_id,
+    base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest",
+    agency = "SPC", version = "latest", references = NULL,
+    all_details = FALSE) {
+  cl_art <- build_sdmx_artefact_url(base_url, "codelist", agency, cl_id, version, references) |>
     readSDMX()
   # info is stored into the component of the associated DSD
   # we'll need to pack this into a good function
   codes <- cl_art@codelists[[1]]@Code |>
-  map_df(S4_to_tibble)
+    map_df(S4_to_tibble)
 }
 
 
 get_prod_stag_data <- function(data_url, old_base = prod_base, new_base = stag_base) {
- 
- print(paste0(old_base, data_url))
+  print(paste0(old_base, data_url))
   old_data <- readSDMX(
     paste0(old_base, data_url)
   ) |>
@@ -208,7 +244,6 @@ get_diffs_chunk_for_df <- function(
     old_base = prod_base,
     new_base = stag_base,
     output_folder = "./output/") {
-
   data_url <- walker_query(
     geo, ind, df_id, dsd_components,
     agency, version
@@ -222,5 +257,4 @@ get_diffs_chunk_for_df <- function(
   chunk_name <- paste0(output_folder, chunk_name, ".tex")
 
   table_to_tex(this_diffs, ind, geo, chunk_name)
-
 }

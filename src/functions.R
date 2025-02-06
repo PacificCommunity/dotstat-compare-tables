@@ -93,6 +93,7 @@ df_to_component_tbl <- function(
     base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest",
     agency = "SPC", version = "latest", references = "all",
     all_details = FALSE) {
+
   df_art <- build_sdmx_artefact_url(base_url, "dataflow", agency, df_id, version, references) |>
     readSDMX()
 
@@ -229,9 +230,6 @@ produce_diffs <- function(old_data, new_data, dimensions) {
     ) |>
     remove_boring_columns(c("FREQ", "GEO_PICT", "INDICATOR"))
 
-  print("diffs\n")
-  this_diffs |> glimpse() |> print()
-
   new_observations <- new_data |>
     anti_join(old_data, by = dimensions) |>
     remove_boring_columns(c("FREQ", "GEO_PICT", "INDICATOR")) |>
@@ -241,9 +239,6 @@ produce_diffs <- function(old_data, new_data, dimensions) {
       old_value = NA_character_
     ) |>
     select(any_of(names(this_diffs)))
-
-  print("new\n")
-  new_observations |> glimpse() |> print()
 
   removed_observations <- old_data |>
     anti_join(new_data, by = dimensions) |>
@@ -255,9 +250,6 @@ produce_diffs <- function(old_data, new_data, dimensions) {
     ) |>
     select(any_of(names(this_diffs)))
 
-
-  print("old\n")
-  removed_observations |> glimpse() |> print()
 
   this_diffs <- this_diffs |>
     bind_rows(
@@ -311,6 +303,9 @@ get_diffs_chunk_for_df <- function(
     geo, ind, df_id, dsd_components,
     agency, version
   )
+
+  print("Currently processing:")
+  print(data_url)
 
   data_to_diff <- get_prod_stag_data(data_url, old_base, new_base)
 

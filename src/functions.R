@@ -54,12 +54,6 @@ S4_to_tibble <- function(s4obj) {
 }
 
 
-this_con <- "https://stats-sdmx-disseminate.pacificdata.org/rest/actualconstraint/SPC/CR_A_DF_POP_LECZ/latest?references=all" |>
-  read_xml()
-
-this_con |> df_codes_available()
-
-## currently here, defining this as a function
 df_available_codes <- function(cr_availability_artefact) {
   available_constraints <- cr_availability_artefact |>
     xml_find_all("//structure:CubeRegion") |>
@@ -195,9 +189,9 @@ cl_to_tbl <- function(
     map_df(S4_to_tibble)
 }
 
-read_sdmx_as_tbl <- function(target,url) {
+read_sdmx_as_tbl <- function(target, url) {
   readSDMX(
-    paste0(target,url)
+    paste0(target, url)
   ) |>
     as_tibble() |>
     arrange_all()
@@ -206,14 +200,13 @@ read_sdmx_as_tbl <- function(target,url) {
 safe_read_sdmx_as_tbl <- possibly(.f = read_sdmx_as_tbl, otherwise = tibble())
 
 get_prod_stag_data <- function(data_url, old_base = prod_base, new_base = stag_base) {
-
   old_data <- safe_read_sdmx_as_tbl(old_base, data_url)
 
   new_data <- safe_read_sdmx_as_tbl(new_base, data_url)
 
-  if(is_empty(old_data) && !is_empty(new_data)) old_data <- new_data |> filter(FALSE)
-  if(is_empty(new_data) && !is_empty(old_data)) new_data <- old_data |> filter(FALSE)
-  if(is_empty(old_data) && is_empty(new_data)) stop("No data here")
+  if (is_empty(old_data) && !is_empty(new_data)) old_data <- new_data |> filter(FALSE)
+  if (is_empty(new_data) && !is_empty(old_data)) new_data <- old_data |> filter(FALSE)
+  if (is_empty(old_data) && is_empty(new_data)) stop("No data here")
 
   return(list(base = old_data, new = new_data))
 }
@@ -229,18 +222,61 @@ produce_diffs <- function(old_data, new_data, dimensions) {
     rename(
       old_value = values.x,
       new_value = values.y
+    ) |>
+    mutate(
+      old_value = as.character(old_value),
+      new_value = as.character(new_value)
+    ) |>
+    remove_boring_columns(c("FREQ", "GEO_PICT", "INDICATOR"))
+
+  print("diffs\n")
+  this_diffs |> glimpse() |> print()
+
+  new_observations <- new_data |>
+    anti_join(old_data, by = dimensions) |>
+    remove_boring_columns(c("FREQ", "GEO_PICT", "INDICATOR")) |>
+    rename(new_value = obsValue) |>
+    mutate(
+      new_value = as.character(new_value),
+      old_value = NA_character_
+    ) |>
+    select(any_of(names(this_diffs)))
+
+  print("new\n")
+  new_observations |> glimpse() |> print()
+
+  removed_observations <- old_data |>
+    anti_join(new_data, by = dimensions) |>
+    remove_boring_columns(c("FREQ", "GEO_PICT", "INDICATOR")) |>
+    rename(old_value = obsValue) |>
+    mutate(
+      new_value = NA_character_,
+      old_value = as.character(old_value)
+    ) |>
+    select(any_of(names(this_diffs)))
+
+
+  print("old\n")
+  removed_observations |> glimpse() |> print()
+
+  this_diffs <- this_diffs |>
+    bind_rows(
+      new_observations
+    ) |>
+    bind_rows(
+      removed_observations
     )
 
-  diffs_names <- names(this_diffs)
-
-  # we remove uninteresting columns from the diffs table
-  # as they have constant values by construction
-  if ("GEO_PICT" %in% diffs_names) this_diffs <- select(this_diffs, -GEO_PICT)
-  if ("INDICATOR" %in% diffs_names) this_diffs <- select(this_diffs, -INDICATOR)
-  # with FREQ we might be a bit more careful
-  if ("FREQ" %in% diffs_names && length(unique(this_diffs$FREQ)) == 1) this_diffs <- select(this_diffs, -FREQ)
-
   return(this_diffs)
+}
+
+remove_boring_columns <- function(df, boring_cols) {
+  names_df <- names(df)
+  for (boring in boring_cols) {
+    if (boring %in% names_df && length(unique(df[[boring]])) == 1) df <- select(df, -all_of(boring))
+  }
+
+  return(df)
 }
 
 table_to_tex <- function(out_table, indicator_name, geo_name) {
@@ -256,7 +292,7 @@ table_to_tex <- function(out_table, indicator_name, geo_name) {
       latex_options = c("repeat_header")
     )
 
-    return(tex_table)
+  return(tex_table)
 }
 
 
@@ -268,9 +304,9 @@ get_diffs_chunk_for_df <- function(
     agency = "SPC", version = "latest",
     old_base = prod_base,
     new_base = stag_base,
-    output_folder = "./output/") {
-
-
+    output_folder = "./output/"
+    ) {
+ 
   data_url <- walker_query(
     geo, ind, df_id, dsd_components,
     agency, version
@@ -282,9 +318,10 @@ get_diffs_chunk_for_df <- function(
     filter(type %in% c("dimension", "time_dimension")) |>
     pluck("conceptRef")
 
-  this_diffs <- produce_diffs(data_to_diff$base, data_to_diff$new, these_dimensions)
-
-#  this_diffs |> glimpse()
+  this_diffs <- produce_diffs(
+    data_to_diff$base,
+    data_to_diff$new,
+    these_dimensions)
 
   chunk_name <- paste(df_id, ind, geo, sep = "_")
   chunk_name <- paste0(output_folder, chunk_name, ".tex")

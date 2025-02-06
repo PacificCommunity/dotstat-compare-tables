@@ -33,4 +33,30 @@ pwalk(~
 }
 
 
-ppp <- safe_get_diffs_chunk_for_df("WS","LECZPOPAF",df_id, version = "1.0", dsd_components = this_components)
+ppp <- get_diffs_chunk_for_df("WS","LECZPOPAF",df_id, version = "1.0", dsd_components = this_components)
+
+t_dimensions <- this_components |>
+  filter(type %in% c("dimension", "time_dimension")) |>
+  pluck("conceptRef")
+
+data_d$new
+data_d$base
+ppp
+
+data_d$new |>
+    anti_join(data_d$base, by = t_dimensions) |>
+    remove_boring_columns(c("FREQ","GEO_PICT","INDICATOR")) |>
+    rename(new_value = obsValue) |>
+    mutate(old_value = NA) |>
+    select(any_of(names(ppp)))
+
+data_d$base |>
+    anti_join(data_d$new, by = t_dimensions) |>
+    remove_boring_columns(c("FREQ","GEO_PICT","INDICATOR")) |>
+    rename(old_value = obsValue) |>
+    mutate(new_value = NA) |>
+    select(any_of(names(ppp)))
+
+
+
+glimpse(ppp)

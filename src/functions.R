@@ -1,7 +1,5 @@
-library(daff)
 library(rsdmx)
 library(tidyverse)
-library(diffdf)
 library(arsenal)
 library(kableExtra)
 library(xml2)

@@ -301,10 +301,6 @@ table_to_tex <- function(out_table, indicator_name, geo_name) {
   return(tex_table)
 }
 
-
-# this works fine for observations present in BOTH dfs
-# but ignores anti_joins.
-# NEED TO ADD ANTI_JOIN (both directions)
 get_diffs_chunk_for_df <- function(
     geo, ind, df_id, dsd_components,
     agency = "SPC", version = "latest",
@@ -334,6 +330,8 @@ get_diffs_chunk_for_df <- function(
     data_to_diff$new,
     these_dimensions)
 
+  if(nrow(this_diffs) > 0) {
+
   chunk_name <- paste(df_id, ind, geo, sep = "_")
   chunk_name <- paste0(output_folder, chunk_name, ".tex")
 
@@ -342,6 +340,9 @@ get_diffs_chunk_for_df <- function(
   save_kable(this_diffs_table, chunk_name)
 
   return(this_diffs_table)
+  } else {
+    print("no differences")
+  }
 }
 
 safe_get_diffs_chunk_for_df <- possibly(.f = get_diffs_chunk_for_df, otherwise = "Chunk didn't produce results")

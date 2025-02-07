@@ -28,6 +28,10 @@ for (df_id in df_ids) {
   }
 
   crossing(geos, indicators) |>
-    pwalk(~ safe_get_diffs_chunk_for_df(..1, ..2, df_id, version = "1.0", dsd_components = this_components))
+    pwalk(~ safe_get_diffs_chunk_for_df(..1, ..2, df_id, version = this_version, dsd_components = this_components))
 
 }
+
+# notes for later
+# get_diffs_chunk_for_df(geos[5], indicators[2], "DF_IMTS", version = "DF_IMTS" |> df_latest_version(), dsd_components = this_components )
+# https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_IMTS,4.0/.AS.NMDI0001.....?dimensionAtObservation=AllDimensions

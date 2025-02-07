@@ -87,6 +87,20 @@ extract_constraint <- function(xml_node) {
   return(available_content)
 }
 
+df_latest_version <- function(
+    df_id,
+    base_url = "https://stats-sdmx-disseminate.pacificdata.org/rest/",
+    agency = "SPC", version = "latest", references = NULL) {
+
+  df_art <- build_sdmx_artefact_url(base_url, "dataflow", agency, df_id, version, references) |>
+    readSDMX()
+
+  # info is stored into the component of the associated DSD
+  # we'll need to pack this into a good function
+  version <- df_art@dataflows[[1]]@version
+
+  return(version)
+}
 
 df_to_component_tbl <- function(
     df_id,
@@ -299,6 +313,8 @@ get_diffs_chunk_for_df <- function(
     output_folder = "./output/"
     ) {
  
+  if(version == "latest") version <- df_id |> df_latest_version()
+
   data_url <- walker_query(
     geo, ind, df_id, dsd_components,
     agency, version

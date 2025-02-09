@@ -304,7 +304,7 @@ get_diffs_chunk_for_df <- function(
     agency = "SPC", version = "latest",
     old_base = prod_base,
     new_base = stag_base,
-    output_folder = "./output/"
+    output_folder = "./output/temp/"
     ) {
  
   if(version == "latest") version <- df_id |> df_latest_version()
